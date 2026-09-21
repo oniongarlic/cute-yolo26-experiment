@@ -21,6 +21,23 @@ struct Detection {
     cv::Mat mask;
 };
 
+cv::TickMeter tm;
+
+std::string basepath="C:/Development/projects/qtopencv/models/";
+
+std::vector<std::string> models = {
+    "yolo26n.onnx",
+    "yolo26n-pose.onnx",
+    "yolo26n-seg.onnx",
+
+    "yolo26s.onnx",
+    "yolo26s-pose.onnx",
+    "yolo26s-seg.onnx"
+};
+
+cv::dnn::Net *cnet;
+std::vector<cv::dnn::Net>nets;
+
 void blend(const cv::Mat &bg, const cv::Mat &fg, const cv::Mat &mask, cv::Mat &res)
 {
     static cv::Mat mf,m3,f1,f2;
@@ -201,23 +218,31 @@ cv::Point2f point3to2(const cv::Point3f &p3)
     return cv::Point2f(p3.x, p3.y);
 }
 
+void set_current_network(int i)
+{
+    cnet=&nets.at(i);
+    tm.reset();
+}
+
 int main(int argc, char *argv[])
 {
     cv::VideoCapture cap;
     int camera=0;
     cv::Mat frame;
     bool run=true, bin=false, blur=false, pred=true;
-    cv::TickMeter tm;
+
     int f=0;
     double fps=0;
-    cv::dnn::Net *cnet;
 
-    auto nd=cv::dnn::readNetFromONNX("C:/Development/src/ocv5/yolo26n.onnx");
-    auto np=cv::dnn::readNetFromONNX("C:/Development/src/ocv5/yolo26n-pose.onnx");
-    auto ns=cv::dnn::readNetFromONNX("C:/Development/src/ocv5/yolo26n-seg.onnx");
+    std::string model;
 
+    foreach (model, models) {
+        qDebug() << "Loading " << model << " from " << basepath;
+        auto nd=cv::dnn::readNetFromONNX(basepath+model);
+        nets.push_back(nd);
+    }
 
-    cnet=&nd;
+    set_current_network(0);
     camera=0;
 
     if (camera>-1) {
@@ -332,19 +357,28 @@ int main(int argc, char *argv[])
         tm.stop();
         if (f % 32==0) {
             fps=tm.getFPS();
-            printf("FPS: %f (%f)\n", fps, tm.getAvgTimeMilli());
+            qDebug() << "FPS: " << fps << tm.getAvgTimeMilli();
         }
 
         int key = cv::waitKey(1);
         switch (key) {
         case '1':
-            cnet=&nd;
+            set_current_network(0);
             break;
         case '2':
-            cnet=&np;
+            set_current_network(0);
             break;
         case '3':
-            cnet=&ns;
+            set_current_network(2);
+            break;
+        case '4':
+            set_current_network(3);
+            break;
+        case '5':
+            set_current_network(4);
+            break;
+        case '6':
+            set_current_network(5);
             break;
         case 'q':
             run=false;
