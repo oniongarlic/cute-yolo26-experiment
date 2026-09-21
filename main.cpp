@@ -32,7 +32,9 @@ std::vector<std::string> models = {
 
     "yolo26s.onnx",
     "yolo26s-pose.onnx",
-    "yolo26s-seg.onnx"
+    "yolo26s-seg.onnx",
+
+    "yolo26n-depth.onnx"
 };
 
 cv::dnn::Net *cnet;
@@ -70,10 +72,10 @@ void blendColor(cv::Mat &bg, const cv::Scalar &fg, const cv::Mat &mask)
     cv::Mat roiF1 = roiF.mul(1.0f - alpha3);
     qDebug("CCCCC");
     cv::Mat roiF2 = roiF.mul(alpha3);
-qDebug("B");
+    qDebug("B");
     //roiF=roiF1+roiF2;
     cv::Mat b=roiF1+roiF2;
-qDebug("C");
+    qDebug("C");
     roiF.convertTo(bg, CV_8UC3);
 }
 
@@ -99,7 +101,7 @@ cv::Mat decodeMask(const cv::Mat& coefficients, const cv::Mat& proto, const cv::
     const float sx = static_cast<float>(protoWidth) / 640.0f;
     const float sy = static_cast<float>(protoHeight) / 640.0f;
 
-     cv::Rect2f protoBox(
+    cv::Rect2f protoBox(
         box640.x      * sx,
         box640.y      * sy,
         box640.width  * sx,
@@ -186,24 +188,26 @@ std::vector<Detection> detect(cv::dnn::Net& net, const cv::Mat& frame, float con
         case 38: // Seg mask coefficients
             if (d.cls==0)
             {
-            cv::Mat mout = outputs[1];
-            cv::Mat coeffs(1, 32, CV_32F);
+                cv::Mat mout = outputs[1];
+                cv::Mat coeffs(1, 32, CV_32F);
 
-            for (size_t p = 0; p < 32; p++) {
-                coeffs.at<float>(0, p)=row[6+p];
-            }
-            std::string e;
+                for (size_t p = 0; p < 32; p++) {
+                    coeffs.at<float>(0, p)=row[6+p];
+                }
+                std::string e;
 
-            auto b640=cv::Rect2f(
-                (row[0]),
-                (row[1]),
-                (row[2]-row[0]),
-                (row[3]-row[1]));
+                auto b640=cv::Rect2f(
+                    (row[0]),
+                    (row[1]),
+                    (row[2]-row[0]),
+                    (row[3]-row[1]));
 
-            // Get mask in detection box size
-            d.mask=decodeMask(coeffs, mout, b640);
+                // Get mask in detection box size
+                d.mask=decodeMask(coeffs, mout, b640);
             }
             break;
+        default:
+            qDebug() << "Model with unhandled cols " << cols;
         }
 
         dets.push_back(d);
@@ -224,23 +228,32 @@ void set_current_network(int i)
     tm.reset();
 }
 
+void load_models()
+{
+    std::string model;
+
+    foreach (model, models) {
+        qDebug() << "Loading " << model << " from " << basepath;
+        try {
+            auto nd=cv::dnn::readNetFromONNX(basepath+model);
+            nets.push_back(nd);
+        } catch (const cv::Exception& ex) {
+            qWarning() << "Failed to load model " << model << ex.codeMessage() << ex.what();
+        }
+    }
+}
+
 int main(int argc, char *argv[])
 {
     cv::VideoCapture cap;
     int camera=0;
     cv::Mat frame;
-    bool run=true, bin=false, blur=false, pred=true;
+    bool run=true, bin=false, blur=false, pred=true,contour=false;
 
     int f=0;
     double fps=0;
 
-    std::string model;
-
-    foreach (model, models) {
-        qDebug() << "Loading " << model << " from " << basepath;
-        auto nd=cv::dnn::readNetFromONNX(basepath+model);
-        nets.push_back(nd);
-    }
+    load_models();
 
     set_current_network(0);
     camera=0;
@@ -256,7 +269,7 @@ int main(int argc, char *argv[])
         cap.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
 #endif
     } else {
-       // cap.open(file);
+        // cap.open(file);
     }
 
     if (!cap.isOpened()) {
@@ -273,7 +286,7 @@ int main(int argc, char *argv[])
         tm.start();
         f++;
 
-        auto df=detect(*cnet, frame, 0.7f, bin);
+        auto df=detect(*cnet, frame, 0.6f, bin);
 
         for (size_t i=0; i<df.size(); i++) {
             const auto d=df[i];
@@ -285,7 +298,7 @@ int main(int argc, char *argv[])
             }
 
             if (!d.mask.empty()) {
-                cv::Mat ma=d.mask, o, mfout;
+                cv::Mat ma=d.mask, o, mfout, cmask;
 
                 cv::Rect dstRect=d.box;
                 cv::Rect dstBounds(0, 0, frame.cols-1, frame.rows-1);
@@ -300,6 +313,18 @@ int main(int argc, char *argv[])
                     cv::Mat binaryMask;
                     cv::threshold(ma, binaryMask, 0.5, 255, cv::THRESH_BINARY);
                     binaryMask.convertTo(binaryMask, CV_8U);
+
+                    if (contour) {
+                        cmask=cv::Mat::zeros(binaryMask.size(), CV_8U);
+                        std::vector<std::vector<cv::Point> > cvs;
+                        cv::findContours(binaryMask, cvs, cv::RETR_LIST, cv::CHAIN_APPROX_NONE);
+
+                        for (int ci=0; ci<cvs.size();ci++) {
+                            cv::drawContours(cmask, cvs, ci, cv::Scalar(255), -2);
+                        }
+                        binaryMask=cmask;
+                    }
+
                     if (blur) {
                         cv::blur(binaryMask, binaryMask, cv::Size(9, 9));
                     }
@@ -389,11 +414,17 @@ int main(int argc, char *argv[])
         case '6':
             set_current_network(5);
             break;
+        case '0':
+            set_current_network(6);
+            break;
         case 'q':
             run=false;
             break;
         case 'b':
             bin=!bin;
+            break;
+        case 'c':
+            contour=!contour;
             break;
         case 'm':
             blur=!blur;
