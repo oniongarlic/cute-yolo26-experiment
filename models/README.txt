@@ -1,0 +1,1 @@
+Download models from https://huggingface.co/Ultralytics/YOLO26 and convert to onnx format for OpenCV
