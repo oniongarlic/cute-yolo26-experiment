@@ -346,6 +346,15 @@ int main(int argc, char *argv[])
                 cv::line(frame, point3to2(d.pose[5]), point3to2(d.pose[7]), cv::Scalar(60,180,255), 2);
                 cv::line(frame, point3to2(d.pose[7]), point3to2(d.pose[9]), cv::Scalar(60,180,255), 2);
 
+                // Feet
+                cv::line(frame, point3to2(d.pose[11]), point3to2(d.pose[12]), cv::Scalar(255,180,255), 2);
+
+                cv::line(frame, point3to2(d.pose[12]), point3to2(d.pose[14]), cv::Scalar(255,180,255), 2);
+                cv::line(frame, point3to2(d.pose[14]), point3to2(d.pose[16]), cv::Scalar(255,180,255), 2);
+
+                cv::line(frame, point3to2(d.pose[11]), point3to2(d.pose[13]), cv::Scalar(255,180,255), 2);
+                cv::line(frame, point3to2(d.pose[13]), point3to2(d.pose[15]), cv::Scalar(255,180,255), 2);
+
             }
         }
 
