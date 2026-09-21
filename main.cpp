@@ -366,7 +366,7 @@ int main(int argc, char *argv[])
             set_current_network(0);
             break;
         case '2':
-            set_current_network(0);
+            set_current_network(1);
             break;
         case '3':
             set_current_network(2);
