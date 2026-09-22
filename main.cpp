@@ -490,9 +490,6 @@ int main(int argc, char *argv[])
         case '6':
             set_current_network(5);
             break;
-        case '0':
-            set_current_network(6);
-            break;
         case 'q':
             run=false;
             break;
