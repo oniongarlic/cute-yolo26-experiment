@@ -11,6 +11,7 @@ constexpr int target = 640;
 
 static const std::string kWinMain = "OpenCV + YOLO26";
 static const std::string kWinMask = "Mask";
+static const std::string kWinDepth = "Depth";
 
 static cv::Mat lbox = cv::Mat(target, target, CV_8UC3, cv::Scalar(114, 114, 114));
 
@@ -39,6 +40,7 @@ std::vector<std::string> models = {
 };
 
 cv::dnn::Net *cnet;
+cv::dnn::Net *dnet;
 std::vector<cv::dnn::Net>nets;
 
 void blend(const cv::Mat &bg, const cv::Mat &fg, const cv::Mat &mask, cv::Mat &res)
@@ -128,6 +130,33 @@ cv::Mat decodeMask(const cv::Mat& coefficients, const cv::Mat& proto, const cv::
     //cv::rectangle(mask640, box640, cv::Scalar(255, 255, 255), 2);
 
     return mask640(box640 & bmax);
+}
+
+cv::Mat depth(cv::dnn::Net& net, const cv::Mat& frame)
+{
+    cv::Mat resized;
+
+    cv::resize(frame, resized, cv::Size(768, 768));
+
+    cv::Mat blob = cv::dnn::blobFromImage(resized, 1.0/255.0, {768, 768}, cv::Scalar(), true, false);
+    net.setInput(blob);
+
+    std::vector<cv::Mat> outputs;
+    cv::Mat dep = net.forward();
+
+    const int height = dep.size[2];
+    const int width  = dep.size[3];
+
+    cv::Mat depthm = dep.reshape(1, height);
+
+#if 0
+    double minVal, maxVal;
+    cv::minMaxLoc(depthm, &minVal, &maxVal);
+    qDebug() << "depth range: " << minVal << " .. " << maxVal << '\n';
+    depthm.convertTo(depth8, CV_8U, 255.0 / (maxVal - minVal), -minVal * 255.0 / (maxVal - minVal));
+#endif
+
+    return depthm;
 }
 
 std::vector<Detection> detect(cv::dnn::Net& net, const cv::Mat& frame, float conf_thres, bool bin)
@@ -261,6 +290,7 @@ int main(int argc, char *argv[])
 
     set_current_network(0);
     camera=0;
+    dnet=&nets.at(6);
 
     QCommandLineParser parser;
 
@@ -293,8 +323,6 @@ int main(int argc, char *argv[])
 #endif
     } else {
         cap.open(file.toStdString());
-        //cap.get(cv::CAP_PROP_FRAME_WIDTH);
-        //cap.get(cv::CAP_PROP_FRAME_HEIGHT);
     }
 
     if (!cap.isOpened()) {
@@ -312,15 +340,21 @@ int main(int argc, char *argv[])
     cv::namedWindow(kWinMain, cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO );
     //cv::namedWindow(kWinMask, cv::WINDOW_NORMAL );
     cv::namedWindow(kWinMask, cv::WINDOW_NORMAL );
+    cv::namedWindow(kWinDepth, cv::WINDOW_NORMAL );
 
     while (cap.read(frame) && run) {
 
         tm.start();
         f++;
 
-        qDebug() << frame.size().height << frame.size().width;
+        //qDebug() << frame.size().width << frame.size().height;
 
         auto df=detect(*cnet, frame, 0.6f, bin);
+
+#if 1
+        auto dep=depth(*dnet, frame);
+        cv::imshow(kWinDepth, dep);
+#endif
 
         for (size_t i=0; i<df.size(); i++) {
             const auto d=df[i];
