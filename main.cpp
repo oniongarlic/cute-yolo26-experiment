@@ -1,4 +1,5 @@
 #include <QCoreApplication>
+#include <QCommandLineParser>
 #include <QDebug>
 
 #include <opencv2/core/core.hpp>
@@ -246,17 +247,39 @@ void load_models()
 int main(int argc, char *argv[])
 {
     cv::VideoCapture cap;
+    cv::VideoWriter writer;
+    QString file, outfile;
     int camera=0;
     cv::Mat frame;
-    bool run=true, bin=false, blur=false, pred=true,contour=false;
-
+    bool run=true, bin=false, blur=false, pred=true,contour=false, paused=false;
     int f=0;
     double fps=0;
+
+    QCoreApplication app(argc, argv);
 
     load_models();
 
     set_current_network(0);
     camera=0;
+
+    QCommandLineParser parser;
+
+    parser.addPositionalArgument("video", "Video file to analyze");
+    QCommandLineOption cameraOption("c");
+    parser.addOption(cameraOption);
+    parser.process(app);
+
+    const QStringList args = parser.positionalArguments();
+    if (args.size()>0) {
+        file=args.at(0);
+        if (args.size()>1)
+            outfile=args.at(1);
+        camera=-1;
+    } else if (parser.isSet(cameraOption)) {
+        camera=parser.value(cameraOption).toInt();
+    }
+
+    qDebug() << "Input " << camera << file;
 
     if (camera>-1) {
         cap.open(camera);
@@ -269,12 +292,21 @@ int main(int argc, char *argv[])
         cap.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
 #endif
     } else {
-        // cap.open(file);
+        cap.open(file.toStdString());
+        //cap.get(cv::CAP_PROP_FRAME_WIDTH);
+        //cap.get(cv::CAP_PROP_FRAME_HEIGHT);
     }
 
     if (!cap.isOpened()) {
         printf("Failed to open video input\n");
         return 1;
+    }
+
+    int frame_width = cap.get(cv::CAP_PROP_FRAME_WIDTH);
+    int frame_height = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+
+    if (!outfile.isEmpty()) {
+        writer.open(outfile.toStdString(), cv::VideoWriter::fourcc('X', '2', '6', '4'), 30.0, cv::Size(frame_width, frame_height));
     }
 
     cv::namedWindow(kWinMain, cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO );
@@ -285,6 +317,8 @@ int main(int argc, char *argv[])
 
         tm.start();
         f++;
+
+        qDebug() << frame.size().height << frame.size().width;
 
         auto df=detect(*cnet, frame, 0.6f, bin);
 
@@ -391,7 +425,11 @@ int main(int argc, char *argv[])
         tm.stop();
         if (f % 32==0) {
             fps=tm.getFPS();
-            qDebug() << "FPS: " << fps << tm.getAvgTimeMilli();
+            qDebug() << "FPS: " << fps << tm.getAvgTimeMilli() << frame.size().height << frame.size().width;
+        }
+
+        if (writer.isOpened()) {
+            writer.write(frame);
         }
 
         int key = cv::waitKey(1);
@@ -444,7 +482,15 @@ int main(int argc, char *argv[])
         case 'e':
             cv::setWindowProperty(kWinMain, cv::WND_PROP_FULLSCREEN , cv::WINDOW_NORMAL);
             break;
+        case ' ':
+            cv::waitKey(0);
+            break;
         }
     }
 
+    cap.release();
+    writer.release();
+    cv::destroyAllWindows();
+
+    return 0;
 }
