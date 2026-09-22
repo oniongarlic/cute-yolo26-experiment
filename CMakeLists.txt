@@ -9,8 +9,8 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core)
+find_package(QT NAMES Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Core)
 
 if (UNIX)
 set(OpenCV_DIR "/opt/OpenCV-5.0.0/lib/cmake/opencv5")
@@ -26,7 +26,7 @@ include_directories( ${OpenCV_INCLUDE_DIRS} )
 add_executable(qtopencv
   main.cpp
 )
-target_link_libraries(qtopencv Qt${QT_VERSION_MAJOR}::Core ${OpenCV_LIBS})
+target_link_libraries(qtopencv Qt6::Core ${OpenCV_LIBS})
 
 include(GNUInstallDirs)
 install(TARGETS qtopencv

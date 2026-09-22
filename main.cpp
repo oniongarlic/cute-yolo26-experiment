@@ -1,4 +1,5 @@
 #include <QCoreApplication>
+#include <QCommandLineParser>
 #include <QDebug>
 
 #include <opencv2/core/core.hpp>
@@ -10,6 +11,7 @@ constexpr int target = 640;
 
 static const std::string kWinMain = "OpenCV + YOLO26";
 static const std::string kWinMask = "Mask";
+static const std::string kWinDepth = "Depth";
 
 static cv::Mat lbox = cv::Mat(target, target, CV_8UC3, cv::Scalar(114, 114, 114));
 
@@ -38,6 +40,7 @@ std::vector<std::string> models = {
 };
 
 cv::dnn::Net *cnet;
+cv::dnn::Net *dnet;
 std::vector<cv::dnn::Net>nets;
 
 void blend(const cv::Mat &bg, const cv::Mat &fg, const cv::Mat &mask, cv::Mat &res)
@@ -127,6 +130,38 @@ cv::Mat decodeMask(const cv::Mat& coefficients, const cv::Mat& proto, const cv::
     //cv::rectangle(mask640, box640, cv::Scalar(255, 255, 255), 2);
 
     return mask640(box640 & bmax);
+}
+
+cv::Mat visualize_depth(const cv::Mat& depth)
+{
+    cv::Mat vdepth;
+
+    double minVal, maxVal;
+    cv::minMaxLoc(depth, &minVal, &maxVal);
+    depth.convertTo(vdepth, CV_8U, 255.0 / (maxVal - minVal), -minVal * 255.0 / (maxVal - minVal));
+
+    return vdepth;
+}
+
+cv::Mat depth(cv::dnn::Net& net, const cv::Mat& frame)
+{
+    cv::Mat resized;
+
+    cv::resize(frame, resized, cv::Size(768, 768));
+
+    cv::Mat blob = cv::dnn::blobFromImage(resized, 1.0/255.0, {768, 768}, cv::Scalar(), true, false);
+    net.setInput(blob);
+
+    cv::Mat dep = net.forward();
+
+    const int height = dep.size[2];
+    const int width  = dep.size[3];
+
+    cv::Mat depthm = dep.reshape(1, height);
+
+    cv::resize(depthm, resized, frame.size());
+
+    return resized;
 }
 
 std::vector<Detection> detect(cv::dnn::Net& net, const cv::Mat& frame, float conf_thres, bool bin)
@@ -246,17 +281,40 @@ void load_models()
 int main(int argc, char *argv[])
 {
     cv::VideoCapture cap;
+    cv::VideoWriter writer;
+    QString file, outfile;
     int camera=0;
     cv::Mat frame;
-    bool run=true, bin=false, blur=false, pred=true,contour=false;
-
+    bool run=true, bin=false, blur=false, pred=true,contour=false, paused=false,showdepth=false;
     int f=0;
     double fps=0;
+
+    QCoreApplication app(argc, argv);
 
     load_models();
 
     set_current_network(0);
     camera=0;
+    dnet=&nets.at(6);
+
+    QCommandLineParser parser;
+
+    parser.addPositionalArgument("video", "Video file to analyze");
+    QCommandLineOption cameraOption("c");
+    parser.addOption(cameraOption);
+    parser.process(app);
+
+    const QStringList args = parser.positionalArguments();
+    if (args.size()>0) {
+        file=args.at(0);
+        if (args.size()>1)
+            outfile=args.at(1);
+        camera=-1;
+    } else if (parser.isSet(cameraOption)) {
+        camera=parser.value(cameraOption).toInt();
+    }
+
+    qDebug() << "Input " << camera << file;
 
     if (camera>-1) {
         cap.open(camera);
@@ -269,7 +327,7 @@ int main(int argc, char *argv[])
         cap.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
 #endif
     } else {
-        // cap.open(file);
+        cap.open(file.toStdString());
     }
 
     if (!cap.isOpened()) {
@@ -277,16 +335,30 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    cv::namedWindow(kWinMain, cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO );
-    //cv::namedWindow(kWinMask, cv::WINDOW_NORMAL );
-    cv::namedWindow(kWinMask, cv::WINDOW_NORMAL );
+    int frame_width = cap.get(cv::CAP_PROP_FRAME_WIDTH);
+    int frame_height = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+
+    if (!outfile.isEmpty()) {
+        writer.open(outfile.toStdString(), cv::VideoWriter::fourcc('X', '2', '6', '4'), 30.0, cv::Size(frame_width, frame_height));
+    }
+
+    cv::namedWindow(kWinMain, cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
+    cv::namedWindow(kWinMask, cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
+    cv::namedWindow(kWinDepth, cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
 
     while (cap.read(frame) && run) {
 
         tm.start();
         f++;
 
+        //qDebug() << frame.size().width << frame.size().height;
+
         auto df=detect(*cnet, frame, 0.6f, bin);
+
+        if (showdepth && f % 8==0) {
+            auto dep=depth(*dnet, frame);
+            cv::imshow(kWinDepth, visualize_depth(dep));
+        }
 
         for (size_t i=0; i<df.size(); i++) {
             const auto d=df[i];
@@ -391,7 +463,11 @@ int main(int argc, char *argv[])
         tm.stop();
         if (f % 32==0) {
             fps=tm.getFPS();
-            qDebug() << "FPS: " << fps << tm.getAvgTimeMilli();
+            qDebug() << "FPS: " << fps << tm.getAvgTimeMilli() << frame.size().height << frame.size().width;
+        }
+
+        if (writer.isOpened()) {
+            writer.write(frame);
         }
 
         int key = cv::waitKey(1);
@@ -432,6 +508,9 @@ int main(int argc, char *argv[])
         case 'p':
             pred=!pred;
             break;
+        case 'z':
+            showdepth=!showdepth;
+            break;
         case 'f':
             cv::setWindowProperty(kWinMask, cv::WND_PROP_FULLSCREEN , cv::WINDOW_FULLSCREEN );
             break;
@@ -444,7 +523,15 @@ int main(int argc, char *argv[])
         case 'e':
             cv::setWindowProperty(kWinMain, cv::WND_PROP_FULLSCREEN , cv::WINDOW_NORMAL);
             break;
+        case ' ':
+            cv::waitKey(0);
+            break;
         }
     }
 
+    cap.release();
+    writer.release();
+    cv::destroyAllWindows();
+
+    return 0;
 }
