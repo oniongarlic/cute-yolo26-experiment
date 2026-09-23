@@ -25,6 +25,7 @@ struct Detection {
 
 cv::TickMeter tm;
 double fps=0;
+int cneti=0;
 
 #ifdef WIN32
 std::string basepath="C:/Development/projects/qtopencv/models/";
@@ -40,6 +41,10 @@ std::vector<std::string> models = {
     "yolo26s.onnx",
     "yolo26s-pose.onnx",
     "yolo26s-seg.onnx",
+
+    "yolo26m.onnx",
+    "yolo26m-pose.onnx",
+    "yolo26m-seg.onnx",
 
     "yolo26n-depth.onnx"
 };
@@ -267,6 +272,7 @@ void set_current_network(int i)
     cnet=&nets.at(i);
     tm.reset();
     fps=0;
+    cneti=i;
 }
 
 void load_models()
@@ -298,16 +304,16 @@ int main(int argc, char *argv[])
     QCoreApplication app(argc, argv);
     QCommandLineParser parser;
 
-    QCommandLineOption cameraOption("c");
+    QCommandLineOption cameraOption("c", "Camera ID", "camera");
     parser.addOption(cameraOption);
 
-    QCommandLineOption inputOption("i");
+    QCommandLineOption inputOption("i", "Input video file.", "file");
     parser.addOption(inputOption);
 
-    QCommandLineOption outputOption("o");
+    QCommandLineOption outputOption("o", "Output video file.", "file");
     parser.addOption(outputOption);
 
-    QCommandLineOption modelOption("m");
+    QCommandLineOption modelOption("m", "Model base path.", "path");
     parser.addOption(modelOption);
 
     parser.process(app);
@@ -323,13 +329,9 @@ int main(int argc, char *argv[])
         qDebug() << "Output file " << file;
     }
 
-    if (parser.isSet(outputOption)) {
-        outfile=parser.value(outputOption);
-        qDebug() << "Output file " << file;
-    }
-
     if (parser.isSet(cameraOption)) {
         camera=parser.value(cameraOption).toInt();
+        qDebug() << "Camera set to " << camera;
     }
 
     if (parser.isSet(modelOption)) {
@@ -340,7 +342,7 @@ int main(int argc, char *argv[])
     load_models();
 
     set_current_network(0);
-    dnet=&nets.at(6);
+    dnet=&nets.at(9);
 
     if (camera>-1) {
         cap.open(camera);
@@ -479,7 +481,7 @@ int main(int argc, char *argv[])
             }
         }
 
-        std::string flabel = cv::format("(%.2f)", fps);
+        std::string flabel = cv::format("(%.1f) [%d]", fps, cneti);
         putText(frame, flabel, cv::Point(10, 10), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 0), 1);
 
         imshow(kWinMain, frame);
@@ -513,6 +515,15 @@ int main(int argc, char *argv[])
             break;
         case '6':
             set_current_network(5);
+            break;
+        case '7':
+            set_current_network(6);
+            break;
+        case '8':
+            set_current_network(7);
+            break;
+        case '9':
+            set_current_network(8);
             break;
         case 'q':
             run=false;
