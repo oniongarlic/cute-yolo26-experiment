@@ -290,6 +290,18 @@ void load_models()
     }
 }
 
+/**
+ *
+ * Draw a pose line, but only if both points are over threshold
+ */
+void posel(cv::Mat &frame, std::vector<cv::Point3f> pose, int f, int t, const cv::Scalar color)
+{
+    if (pose[f].z<0.6 || pose[t].z<0.6)
+        return;
+
+    cv::line(frame, point3to2(pose[f]), point3to2(pose[t]), color, 2);
+}
+
 int main(int argc, char *argv[])
 {
     cv::VideoCapture cap;
@@ -470,14 +482,13 @@ int main(int argc, char *argv[])
                 cv::line(frame, point3to2(d.pose[7]), point3to2(d.pose[9]), cv::Scalar(60,180,255), 2);
 
                 // Feet
-                cv::line(frame, point3to2(d.pose[11]), point3to2(d.pose[12]), cv::Scalar(255,180,255), 2);
+                posel(frame, d.pose, 11, 12, cv::Scalar(255,180,255));
 
-                cv::line(frame, point3to2(d.pose[12]), point3to2(d.pose[14]), cv::Scalar(255,180,255), 2);
-                cv::line(frame, point3to2(d.pose[14]), point3to2(d.pose[16]), cv::Scalar(255,180,255), 2);
+                posel(frame, d.pose, 12, 14, cv::Scalar(255,180,255));
+                posel(frame, d.pose, 14, 16, cv::Scalar(255,180,255));
 
-                cv::line(frame, point3to2(d.pose[11]), point3to2(d.pose[13]), cv::Scalar(255,180,255), 2);
-                cv::line(frame, point3to2(d.pose[13]), point3to2(d.pose[15]), cv::Scalar(255,180,255), 2);
-
+                posel(frame, d.pose, 11, 13, cv::Scalar(255,180,255));
+                posel(frame, d.pose, 13, 15, cv::Scalar(255,180,255));
             }
         }
 
