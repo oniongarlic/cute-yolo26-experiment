@@ -12,8 +12,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(QT NAMES Qt6 REQUIRED COMPONENTS Core)
 find_package(Qt6 REQUIRED COMPONENTS Core)
 
-#set(OpenCV_DIR "C:/Qt/opencv/build")
+if (UNIX)
+set(OpenCV_DIR "/opt/OpenCV-5.0.0/lib/cmake/opencv5")
+endif (UNIX)
+
+if (MSVC)
 set(OpenCV_DIR "C:/Development/opencv-5")
+endif (MSVC)
 
 find_package(OpenCV REQUIRED)
 include_directories( ${OpenCV_INCLUDE_DIRS} )
