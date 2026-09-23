@@ -24,8 +24,13 @@ struct Detection {
 };
 
 cv::TickMeter tm;
+double fps=0;
 
+#ifdef WIN32
 std::string basepath="C:/Development/projects/qtopencv/models/";
+#else
+std::string basepath="/data/repos/models/";
+#endif
 
 std::vector<std::string> models = {
     "yolo26n.onnx",
@@ -261,6 +266,7 @@ void set_current_network(int i)
 {
     cnet=&nets.at(i);
     tm.reset();
+    fps=0;
 }
 
 void load_models()
@@ -287,34 +293,54 @@ int main(int argc, char *argv[])
     cv::Mat frame;
     bool run=true, bin=false, blur=false, pred=true,contour=false, paused=false,showdepth=false;
     int f=0;
-    double fps=0;
+    double thres=0.6;
 
     QCoreApplication app(argc, argv);
+    QCommandLineParser parser;
+
+    QCommandLineOption cameraOption("c");
+    parser.addOption(cameraOption);
+
+    QCommandLineOption inputOption("i");
+    parser.addOption(inputOption);
+
+    QCommandLineOption outputOption("o");
+    parser.addOption(outputOption);
+
+    QCommandLineOption modelOption("m");
+    parser.addOption(modelOption);
+
+    parser.process(app);
+
+    if (parser.isSet(inputOption)) {
+        file=parser.value(inputOption);
+        camera=-1;
+        qDebug() << "Input file " << file;
+    }
+
+    if (parser.isSet(outputOption)) {
+        outfile=parser.value(outputOption);
+        qDebug() << "Output file " << file;
+    }
+
+    if (parser.isSet(outputOption)) {
+        outfile=parser.value(outputOption);
+        qDebug() << "Output file " << file;
+    }
+
+    if (parser.isSet(cameraOption)) {
+        camera=parser.value(cameraOption).toInt();
+    }
+
+    if (parser.isSet(modelOption)) {
+        basepath=parser.value(modelOption).toStdString();
+        qDebug() << "Loading models from " << basepath;
+    }
 
     load_models();
 
     set_current_network(0);
-    camera=0;
     dnet=&nets.at(6);
-
-    QCommandLineParser parser;
-
-    parser.addPositionalArgument("video", "Video file to analyze");
-    QCommandLineOption cameraOption("c");
-    parser.addOption(cameraOption);
-    parser.process(app);
-
-    const QStringList args = parser.positionalArguments();
-    if (args.size()>0) {
-        file=args.at(0);
-        if (args.size()>1)
-            outfile=args.at(1);
-        camera=-1;
-    } else if (parser.isSet(cameraOption)) {
-        camera=parser.value(cameraOption).toInt();
-    }
-
-    qDebug() << "Input " << camera << file;
 
     if (camera>-1) {
         cap.open(camera);
@@ -351,9 +377,7 @@ int main(int argc, char *argv[])
         tm.start();
         f++;
 
-        //qDebug() << frame.size().width << frame.size().height;
-
-        auto df=detect(*cnet, frame, 0.6f, bin);
+        auto df=detect(*cnet, frame, thres, bin);
 
         if (showdepth && f % 8==0) {
             auto dep=depth(*dnet, frame);
@@ -456,12 +480,12 @@ int main(int argc, char *argv[])
         }
 
         std::string flabel = cv::format("(%.2f)", fps);
-        putText(frame, flabel, cv::Point(10, 10), cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(255, 255, 0), 1);
+        putText(frame, flabel, cv::Point(10, 10), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 0), 1);
 
         imshow(kWinMain, frame);
 
         tm.stop();
-        if (f % 32==0) {
+        if (f % 16==0) {
             fps=tm.getFPS();
             qDebug() << "FPS: " << fps << tm.getAvgTimeMilli() << frame.size().height << frame.size().width;
         }
@@ -522,6 +546,12 @@ int main(int argc, char *argv[])
             break;
         case ' ':
             cv::waitKey(0);
+            break;
+        case '+':
+            thres+=0.01;
+        break;
+        case '-':
+            thres-=0.01;
             break;
         }
     }
