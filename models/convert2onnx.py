@@ -10,10 +10,22 @@ URLS = [
     "https://huggingface.co/Ultralytics/YOLO26/blob/main/yolo26s.pt",
     "https://huggingface.co/Ultralytics/YOLO26/blob/main/yolo26s-seg.pt",
     "https://huggingface.co/Ultralytics/YOLO26/blob/main/yolo26s-pose.pt",
+
+    "https://huggingface.co/Ultralytics/YOLO26/blob/main/yolo26m.pt",
+    "https://huggingface.co/Ultralytics/YOLO26/blob/main/yolo26m-seg.pt",
+    "https://huggingface.co/Ultralytics/YOLO26/blob/main/yolo26m-pose.pt",
 ]
 
 def process_file(filename):
     print(f"Processing {filename}")
+
+    base, _ = os.path.splitext(filename)
+    output = base + ".onnx"
+
+    if os.path.exists(output):
+        print(f"Already processed: {output}")
+        return
+
     model = YOLO(filename) 
     model.export(
      format="onnx",
