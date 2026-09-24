@@ -7,6 +7,8 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/dnn.hpp>
 
+#include "yolo26models.h"
+
 constexpr int target = 640;
 
 static const std::string kWinMain = "OpenCV + YOLO26";
@@ -27,31 +29,10 @@ cv::TickMeter tm;
 double fps=0;
 int cneti=0;
 
-#ifdef WIN32
-std::string basepath="C:/Development/projects/qtopencv/models/";
-#else
-std::string basepath="/data/repos/models/";
-#endif
-
-std::vector<std::string> models = {
-    "yolo26n.onnx",
-    "yolo26n-pose.onnx",
-    "yolo26n-seg.onnx",
-
-    "yolo26s.onnx",
-    "yolo26s-pose.onnx",
-    "yolo26s-seg.onnx",
-
-    "yolo26m.onnx",
-    "yolo26m-pose.onnx",
-    "yolo26m-seg.onnx",
-
-    "yolo26n-depth.onnx"
-};
+Yolo26Models models;
 
 cv::dnn::Net *cnet;
 cv::dnn::Net *dnet;
-std::vector<cv::dnn::Net>nets;
 
 void blend(const cv::Mat &bg, const cv::Mat &fg, const cv::Mat &mask, cv::Mat &res)
 {
@@ -269,25 +250,10 @@ cv::Point2f point3to2(const cv::Point3f &p3)
 
 void set_current_network(int i)
 {
-    cnet=&nets.at(i);
+    cnet=&models.net(i);
     tm.reset();
     fps=0;
     cneti=i;
-}
-
-void load_models()
-{
-    std::string model;
-
-    foreach (model, models) {
-        qDebug() << "Loading " << model << " from " << basepath;
-        try {
-            auto nd=cv::dnn::readNetFromONNX(basepath+model);
-            nets.push_back(nd);
-        } catch (const cv::Exception& ex) {
-            qWarning() << "Failed to load model " << model << ex.codeMessage() << ex.what();
-        }
-    }
 }
 
 /**
@@ -325,8 +291,11 @@ int main(int argc, char *argv[])
     QCommandLineOption outputOption("o", "Output video file.", "file");
     parser.addOption(outputOption);
 
-    QCommandLineOption modelOption("m", "Model base path.", "path");
+    QCommandLineOption modelOption("b", "Model base path.", "path");
     parser.addOption(modelOption);
+
+    QCommandLineOption defaultOption("m", "Start with given model.", "model");
+    parser.addOption(defaultOption);
 
     parser.process(app);
 
@@ -351,10 +320,10 @@ int main(int argc, char *argv[])
         qDebug() << "Loading models from " << basepath;
     }
 
-    load_models();
+    models.load();
 
     set_current_network(0);
-    dnet=&nets.at(9);
+    dnet=&models.net(12);
 
     if (camera>-1) {
         cap.open(camera);

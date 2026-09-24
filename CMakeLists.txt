@@ -25,6 +25,7 @@ include_directories( ${OpenCV_INCLUDE_DIRS} )
 
 add_executable(qtopencv
   main.cpp
+  yolo26models.h yolo26models.cpp
 )
 target_link_libraries(qtopencv Qt6::Core ${OpenCV_LIBS})
 
