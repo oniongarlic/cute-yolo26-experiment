@@ -39,6 +39,11 @@ std::string &Yolo26Models::name(int idx)
     return models.at(idx).name;
 }
 
+void Yolo26Models::setBasepath(const std::string path)
+{
+    basepath=path;
+}
+
 void Yolo26Models::load()
 {
     Model m;

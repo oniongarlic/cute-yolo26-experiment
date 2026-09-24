@@ -18,6 +18,9 @@ public:
 
     cv::dnn::Net &net(int idx);
     std::string &name(int idx);
+
+    void setBasepath(const std::string path);
+
 private:
     std::string basepath;
     std::vector<Model> models;

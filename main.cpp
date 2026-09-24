@@ -32,6 +32,7 @@ int cneti=0;
 Yolo26Models models;
 
 cv::dnn::Net *cnet;
+std::string cname;
 cv::dnn::Net *dnet;
 
 void blend(const cv::Mat &bg, const cv::Mat &fg, const cv::Mat &mask, cv::Mat &res)
@@ -254,6 +255,7 @@ void set_current_network(int i)
     tm.reset();
     fps=0;
     cneti=i;
+    cname=models.name(i);
 }
 
 /**
@@ -316,8 +318,8 @@ int main(int argc, char *argv[])
     }
 
     if (parser.isSet(modelOption)) {
-        basepath=parser.value(modelOption).toStdString();
-        qDebug() << "Loading models from " << basepath;
+        models.setBasepath(parser.value(modelOption).toStdString());
+        //qDebug() << "Loading models from " << basepath;
     }
 
     models.load();
@@ -441,14 +443,14 @@ int main(int argc, char *argv[])
                 cv::line(frame, point3to2(d.pose[2]), point3to2(d.pose[4]), cv::Scalar(0,120,255), 2);
 
                 // Shoulders
-                cv::line(frame, point3to2(d.pose[5]), point3to2(d.pose[6]), cv::Scalar(60,180,255), 2);
+                posel(frame, d.pose, 5, 6, cv::Scalar(60,180,255));
 
                 // hand
-                cv::line(frame, point3to2(d.pose[6]), point3to2(d.pose[8]), cv::Scalar(60,180,255), 2);
-                cv::line(frame, point3to2(d.pose[8]), point3to2(d.pose[10]), cv::Scalar(60,180,255), 2);
+                posel(frame, d.pose, 6, 8, cv::Scalar(60,180,255));
+                posel(frame, d.pose, 8, 10, cv::Scalar(60,180,255));
 
-                cv::line(frame, point3to2(d.pose[5]), point3to2(d.pose[7]), cv::Scalar(60,180,255), 2);
-                cv::line(frame, point3to2(d.pose[7]), point3to2(d.pose[9]), cv::Scalar(60,180,255), 2);
+                posel(frame, d.pose, 5, 7, cv::Scalar(60,180,255));
+                posel(frame, d.pose, 7, 9, cv::Scalar(60,180,255));
 
                 // Feet
                 posel(frame, d.pose, 11, 12, cv::Scalar(255,180,255));
@@ -461,8 +463,8 @@ int main(int argc, char *argv[])
             }
         }
 
-        std::string flabel = cv::format("(%.1f) [%d]", fps, cneti);
-        putText(frame, flabel, cv::Point(10, 10), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 0), 1);
+        std::string flabel = cv::format("(%.1f) [%d] (%s)", fps, cneti, cname.c_str());
+        putText(frame, flabel, cv::Point(10, 20), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 0), 1);
 
         imshow(kWinMain, frame);
 
