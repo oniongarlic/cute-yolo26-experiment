@@ -13,18 +13,22 @@ struct Model {
 class Yolo26Models
 {
 public:
-    Yolo26Models();
+    Yolo26Models(std::vector<Model> models);
     void load();
 
     cv::dnn::Net &net(int idx);
     std::string &name(int idx);
 
     void setBasepath(const std::string path);
+    void setGpu(bool gpu) {m_gpu=gpu;}
+
+    const std::string basepath() { return m_basepath; }
 
 private:
-    std::string basepath;
-    std::vector<Model> models;
-    std::vector<cv::dnn::Net> nets;
+    std::string m_basepath;
+    std::vector<Model> m_models;
+    std::vector<cv::dnn::Net> m_nets;
+    bool m_gpu=false;
 };
 
 #endif // YOLO26MODELS_H

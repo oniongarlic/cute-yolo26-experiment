@@ -29,7 +29,30 @@ cv::TickMeter tm;
 double fps=0;
 int cneti=0;
 
-Yolo26Models models;
+Yolo26Models *models;
+Yolo26Models *dmodels;
+
+std::vector<Model> base_models = {
+    {"yolo26n.onnx","Yolo26n"},
+    {"yolo26n-pose.onnx","Yolo26n Pose"},
+    {"yolo26n-seg.onnx","Yolo26n Seg"},
+
+    {"yolo26s.onnx","Yolo26s"},
+    {"yolo26s-pose.onnx","Yolo26s pose"},
+    {"yolo26s-seg.onnx","Yolo26s seg"},
+
+    {"yolo26m.onnx","Yolo26m"},
+    {"yolo26m-pose.onnx","Yolo26m pose"},
+    {"yolo26m-seg.onnx","Yolo26m seg"},
+
+    {"yolo26l.onnx","Yolo26l"},
+    {"yolo26l-pose.onnx","Yolo26l pose"},
+    {"yolo26l-seg.onnx","Yolo26l seg"}
+};
+
+std::vector<Model> depth_models = {
+    {"yolo26n-depth.onnx","Yolo26 Depth"}
+};
 
 cv::dnn::Net *cnet;
 std::string cname;
@@ -211,7 +234,7 @@ std::vector<Detection> detect(cv::dnn::Net& net, const cv::Mat& frame, float con
                 auto pp=cv::Point3f((row[6+p*3]-dx/2)/scale, (row[6+p*3+1]-dy/2)/scale, row[6+p*3+2]);
                 d.pose.push_back(pp);
             }
-            break;
+            break;        
         case 38: // Seg mask coefficients
             if (d.cls==0)
             {
@@ -251,11 +274,11 @@ cv::Point2f point3to2(const cv::Point3f &p3)
 
 void set_current_network(int i)
 {
-    cnet=&models.net(i);
+    cnet=&models->net(i);
     tm.reset();
     fps=0;
     cneti=i;
-    cname=models.name(i);
+    cname=models->name(i);
 }
 
 /**
@@ -279,7 +302,7 @@ int main(int argc, char *argv[])
     cv::Mat frame;
     bool run=true, bin=false, blur=false, pred=true,contour=false, paused=false,showdepth=false;
     int f=0;
-    double thres=0.6;
+    double thres=0.6,scale=1.0;
 
     QCoreApplication app(argc, argv);
     QCommandLineParser parser;
@@ -299,7 +322,22 @@ int main(int argc, char *argv[])
     QCommandLineOption defaultOption("m", "Start with given model.", "model");
     parser.addOption(defaultOption);
 
+    QCommandLineOption scaleOption("s", "Scale frame down", "scale");
+    parser.addOption(scaleOption);
+
+    QCommandLineOption gpuOption("g", "Force CUDA gpu", "gpu");
+    parser.addOption(gpuOption);
+
     parser.process(app);
+
+    models=new Yolo26Models(base_models);
+    dmodels=new Yolo26Models(depth_models);
+
+    if (parser.isSet(gpuOption)) {
+        models->setGpu(true);
+        dmodels->setGpu(true);
+        qDebug() << "GPU Enabled";
+    }
 
     if (parser.isSet(inputOption)) {
         file=parser.value(inputOption);
@@ -317,15 +355,22 @@ int main(int argc, char *argv[])
         qDebug() << "Camera set to " << camera;
     }
 
+    if (parser.isSet(scaleOption)) {
+        scale=parser.value(scaleOption).toFloat();
+        qDebug() << "Scale set to " << scale;
+    }
+
     if (parser.isSet(modelOption)) {
-        models.setBasepath(parser.value(modelOption).toStdString());
+        models->setBasepath(parser.value(modelOption).toStdString());
+        dmodels->setBasepath(parser.value(modelOption).toStdString());
         //qDebug() << "Loading models from " << basepath;
     }
 
-    models.load();
+    models->load();
+    dmodels->load();
 
     set_current_network(0);
-    dnet=&models.net(12);
+    dnet=&dmodels->net(0);
 
     if (camera>-1) {
         cap.open(camera);
@@ -362,9 +407,13 @@ int main(int argc, char *argv[])
         tm.start();
         f++;
 
+        if (scale!=1.0 && scale>0.0) {
+            cv::resize(frame, frame, cv::Size(), scale, scale);
+        }
+
         auto df=detect(*cnet, frame, thres, bin);
 
-        if (showdepth && f % 8==0) {
+        if (showdepth && dnet && f % 8==0) {
             auto dep=depth(*dnet, frame);
             cv::imshow(kWinDepth, visualize_depth(dep));
         }
@@ -450,7 +499,7 @@ int main(int argc, char *argv[])
                 posel(frame, d.pose, 8, 10, cv::Scalar(60,180,255));
 
                 posel(frame, d.pose, 5, 7, cv::Scalar(60,180,255));
-                posel(frame, d.pose, 7, 9, cv::Scalar(60,180,255));
+                posel(frame, d.pose, 7, 9, cv::Scalar(60,180,255));                
 
                 // Feet
                 posel(frame, d.pose, 11, 12, cv::Scalar(255,180,255));
