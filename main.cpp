@@ -499,7 +499,11 @@ int main(int argc, char *argv[])
                 posel(frame, d.pose, 8, 10, cv::Scalar(60,180,255));
 
                 posel(frame, d.pose, 5, 7, cv::Scalar(60,180,255));
-                posel(frame, d.pose, 7, 9, cv::Scalar(60,180,255));                
+                posel(frame, d.pose, 7, 9, cv::Scalar(60,180,255));
+
+                // body
+                posel(frame, d.pose, 5, 11, cv::Scalar(160,180,255));
+                posel(frame, d.pose, 6, 12, cv::Scalar(160,180,255));
 
                 // Feet
                 posel(frame, d.pose, 11, 12, cv::Scalar(255,180,255));
