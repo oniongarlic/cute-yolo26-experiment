@@ -179,6 +179,18 @@ cv::Mat depth(cv::dnn::Net& net, const cv::Mat& frame)
     return resized;
 }
 
+void debug_outputs(const std::vector<cv::Mat> &outputs)
+{
+    qDebug() << "Outputs:" << outputs.size();
+
+    for (size_t i = 0; i < outputs.size(); ++i) {
+        cv::Mat out = outputs[i];
+        qDebug() << "Output" << out.dims;
+        for (int i = 0; i < out.dims; ++i)
+            qDebug() << "size[" << i << "] = " << out.size[i];
+    }
+}
+
 std::vector<Detection> detect(cv::dnn::Net& net, const cv::Mat& frame, float conf_thres, bool bin)
 {
     const float scale = std::min(
@@ -257,7 +269,7 @@ std::vector<Detection> detect(cv::dnn::Net& net, const cv::Mat& frame, float con
             }
             break;
         default:
-            qDebug() << "Model with unhandled cols " << cols;
+            debug_outputs(outputs);
         }
 
         dets.push_back(d);
