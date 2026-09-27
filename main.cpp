@@ -312,7 +312,7 @@ int main(int argc, char *argv[])
     QString file, outfile;
     int camera=0;
     cv::Mat frame;
-    bool run=true, bin=false, blur=false, pred=true,contour=false, paused=false,showdepth=false;
+    bool run=true, bin=false, blur=false, pred=true,contour=false, paused=false,showdepth=false,gpu=false;
     int f=0;
     double thres=0.6,scale=1.0;
 
@@ -346,8 +346,7 @@ int main(int argc, char *argv[])
     dmodels=new Yolo26Models(depth_models);
 
     if (parser.isSet(gpuOption)) {
-        models->setGpu(true);
-        dmodels->setGpu(true);
+        gpu=true;
         qDebug() << "GPU Enabled";
     }
 
@@ -377,6 +376,9 @@ int main(int argc, char *argv[])
         dmodels->setBasepath(parser.value(modelOption).toStdString());
         //qDebug() << "Loading models from " << basepath;
     }
+
+    models->setGpu(gpu);
+    dmodels->setGpu(gpu);
 
     models->load();
     dmodels->load();
@@ -425,7 +427,7 @@ int main(int argc, char *argv[])
 
         auto df=detect(*cnet, frame, thres, bin);
 
-        if (showdepth && dnet && f % 8==0) {
+        if (showdepth && dnet && (f % 8==0 || gpu)) {
             auto dep=depth(*dnet, frame);
             cv::imshow(kWinDepth, visualize_depth(dep));
         }
