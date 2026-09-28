@@ -308,12 +308,13 @@ void posel(cv::Mat &frame, std::vector<cv::Point3f> pose, int f, int t, const cv
 int main(int argc, char *argv[])
 {
     cv::VideoCapture cap;
-    cv::VideoWriter writer;
-    QString file, outfile;
+    cv::VideoWriter writer, dwriter, mwriter;
+    QString file, outfile, moutfile, doutfile;
     int camera=0;
     cv::Mat frame;
     bool run=true, bin=false, blur=false, pred=true,contour=false, paused=false,showdepth=false,gpu=false;
     int f=0;
+    int mbase=0,mindex=0;
     double thres=0.6,scale=1.0;
 
     QCoreApplication app(argc, argv);
@@ -327,6 +328,12 @@ int main(int argc, char *argv[])
 
     QCommandLineOption outputOption("o", "Output video file.", "file");
     parser.addOption(outputOption);
+
+    QCommandLineOption maskOutputOption("om", "Output mask video file.", "file");
+    parser.addOption(maskOutputOption);
+
+    QCommandLineOption depthOutputOption("od", "Output depth video file.", "file");
+    parser.addOption(depthOutputOption);
 
     QCommandLineOption modelOption("b", "Model base path.", "path");
     parser.addOption(modelOption);
@@ -354,6 +361,16 @@ int main(int argc, char *argv[])
         file=parser.value(inputOption);
         camera=-1;
         qDebug() << "Input file " << file;
+    }
+
+    if (parser.isSet(maskOutputOption)) {
+        doutfile=parser.value(maskOutputOption);
+        qDebug() << "Mask Output file " << file;
+    }
+
+    if (parser.isSet(depthOutputOption)) {
+        moutfile=parser.value(depthOutputOption);
+        qDebug() << "Depth Output file " << file;
     }
 
     if (parser.isSet(outputOption)) {
@@ -407,9 +424,18 @@ int main(int argc, char *argv[])
 
     int frame_width = cap.get(cv::CAP_PROP_FRAME_WIDTH);
     int frame_height = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+    double frame_fps = cap.get(cv::CAP_PROP_FPS);
 
     if (!outfile.isEmpty()) {
-        writer.open(outfile.toStdString(), cv::VideoWriter::fourcc('X', '2', '6', '4'), 30.0, cv::Size(frame_width, frame_height));
+        writer.open(outfile.toStdString(), cv::VideoWriter::fourcc('X', '2', '6', '4'), frame_fps, cv::Size(frame_width, frame_height));
+    }
+
+    if (!doutfile.isEmpty()) {
+        dwriter.open(doutfile.toStdString(), cv::VideoWriter::fourcc('X', '2', '6', '4'), frame_fps, cv::Size(frame_width, frame_height));
+    }
+
+    if (!moutfile.isEmpty()) {
+        mwriter.open(moutfile.toStdString(), cv::VideoWriter::fourcc('X', '2', '6', '4'), frame_fps, cv::Size(frame_width, frame_height));
     }
 
     cv::namedWindow(kWinMain, cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
@@ -417,6 +443,7 @@ int main(int argc, char *argv[])
     cv::namedWindow(kWinDepth, cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
 
     while (cap.read(frame) && run) {
+        cv::Mat depFrame, maskFrame;
 
         tm.start();
         f++;
@@ -428,8 +455,8 @@ int main(int argc, char *argv[])
         auto df=detect(*cnet, frame, thres, bin);
 
         if (showdepth && dnet && (f % 8==0 || gpu)) {
-            auto dep=depth(*dnet, frame);
-            cv::imshow(kWinDepth, visualize_depth(dep));
+            depFrame=depth(*dnet, frame);
+            cv::imshow(kWinDepth, visualize_depth(depFrame));
         }
 
         for (size_t i=0; i<df.size(); i++) {
@@ -449,9 +476,9 @@ int main(int argc, char *argv[])
                 cv::Rect clipped = dstRect & dstBounds;
 
                 // mask black bg
-                cv::Mat maskFrame=cv::Mat::zeros(frame.size(), CV_8U);
+                cv::Mat mf=cv::Mat::zeros(frame.size(), CV_8U);
                 // mask position on black background
-                auto mroi=maskFrame(clipped);
+                auto mroi=mf(clipped);
 
                 if (bin) {
                     cv::Mat binaryMask;
@@ -484,7 +511,8 @@ int main(int argc, char *argv[])
                     ma.copyTo(mroi);
                 }
 
-                imshow(kWinMask, maskFrame);
+                imshow(kWinMask, mf);
+                maskFrame=mf;
             }
             if (!d.pose.empty()) {
                 for (size_t pi=0; pi<d.pose.size(); pi++) {
@@ -545,34 +573,39 @@ int main(int argc, char *argv[])
             writer.write(frame);
         }
 
+        if (dwriter.isOpened() && showdepth) {
+            dwriter.write(visualize_depth(depFrame));
+        }
+
+        if (mwriter.isOpened()) {
+            mwriter.write(maskFrame);
+        }
+
         int key = cv::waitKey(1);
         switch (key) {
         case '1':
-            set_current_network(0);
+            mbase=0;
+            set_current_network(3 * mbase + mindex);
             break;
         case '2':
-            set_current_network(1);
+            mbase=1;
+            set_current_network(3 * mbase + mindex);
             break;
         case '3':
-            set_current_network(2);
+            mbase=2;
+            set_current_network(3 * mbase + mindex);
             break;
         case '4':
-            set_current_network(3);
+            mindex=0;
+            set_current_network(3 * mbase + mindex);
             break;
         case '5':
-            set_current_network(4);
+            mindex=1;
+            set_current_network(3 * mbase + mindex);
             break;
         case '6':
-            set_current_network(5);
-            break;
-        case '7':
-            set_current_network(6);
-            break;
-        case '8':
-            set_current_network(7);
-            break;
-        case '9':
-            set_current_network(8);
+            mindex=2;
+            set_current_network(3 * mbase + mindex);
             break;
         case 'q':
             run=false;
