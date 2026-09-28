@@ -20,6 +20,34 @@ URLS = [
     "https://huggingface.co/Ultralytics/YOLO26/blob/main/yolo26l-pose.pt",
 ]
 
+models = [
+    "yolo26n.pt",
+    "yolo26n-seg.pt",
+    "yolo26n-pose.pt",
+
+    "yolo26s.pt",
+    "yolo26s-seg.pt",
+    "yolo26s-pose.pt",
+
+    "yolo26m.pt",
+    "yolo26m-seg.pt",
+    "yolo26m-pose.pt",
+
+    "yolo26l.pt",
+    "yolo26l-seg.pt",
+    "yolo26l-pose.pt",
+
+    "yolo26x.pt",
+    "yolo26x-seg.pt",
+    "yolo26x-pose.pt",
+
+    "yolo26n-depth.pt",
+    "yolo26s-depth.pt",
+    "yolo26m-depth.pt",
+    "yolo26l-depth.pt",
+    "yolo26x-depth.pt",
+]
+
 def process_file(filename):
     print(f"Processing {filename}")
 
@@ -62,14 +90,8 @@ def process_file_q8(filename):
     )
 
 
-for url in URLS:
+for url in models:
     filename = os.path.basename(url)
-
-    if not os.path.exists(filename):
-        print(f"Downloading {url}")
-        urllib.request.urlretrieve(url, filename)
-    else:
-        print(f"Already exists: {filename}")
 
     process_file(filename)
     # process_file_q8(filename)
