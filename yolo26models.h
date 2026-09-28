@@ -24,6 +24,7 @@ public:
 
     const std::string basepath() { return m_basepath; }
 
+    void load_model(int idx);
 private:
     std::string m_basepath;
     std::vector<Model> m_models;

@@ -51,7 +51,10 @@ std::vector<Model> base_models = {
 };
 
 std::vector<Model> depth_models = {
-    {"yolo26n-depth.onnx","Yolo26 Depth"}
+    {"yolo26n-depth.onnx","Yolo26n Depth"},
+    {"yolo26s-depth.onnx","Yolo26s Depth"},
+    {"yolo26m-depth.onnx","Yolo26m Depth"},
+    {"yolo26l-depth.onnx","Yolo26l Depth"}
 };
 
 cv::dnn::Net *cnet;

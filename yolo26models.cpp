@@ -9,6 +9,7 @@ Yolo26Models::Yolo26Models(std::vector<Model> models)
 #endif
 
     m_models=models;
+    m_nets.resize(m_models.size());
 }
 
 cv::dnn::Net &Yolo26Models::net(int idx)
@@ -26,19 +27,35 @@ void Yolo26Models::setBasepath(const std::string path)
     m_basepath=path;
 }
 
+void Yolo26Models::load_model(int idx)
+{
+    auto m=m_models.at(idx);
+    try {
+        auto net=cv::dnn::readNetFromONNX(m_basepath+m.onnx, m_gpu ? cv::dnn::ENGINE_CLASSIC : cv::dnn::ENGINE_AUTO);
+        if (m_gpu) {
+            net.setPreferableBackend(cv::dnn::DNN_BACKEND_CUDA);
+            net.setPreferableTarget(cv::dnn::DNN_TARGET_CUDA);
+        }
+        m_nets[idx]=net;
+    } catch (const cv::Exception& ex) {
+        qWarning() << "Failed to load model " << m.name << ex.codeMessage() << ex.what();
+    }
+}
+
 void Yolo26Models::load()
 {
     Model m;
 
-    foreach (m, m_models) {
-        qDebug() << "Loading " << m.onnx << " from " << m_basepath;
+    for (size_t i=0;i<m_models.size();i++) {
+        auto m=m_models.at(i);
+        qDebug() << "Loading " << i << m.onnx << " from " << m_basepath;
         try {
             auto net=cv::dnn::readNetFromONNX(m_basepath+m.onnx, m_gpu ? cv::dnn::ENGINE_CLASSIC : cv::dnn::ENGINE_AUTO);
             if (m_gpu) {
                 net.setPreferableBackend(cv::dnn::DNN_BACKEND_CUDA);
                 net.setPreferableTarget(cv::dnn::DNN_TARGET_CUDA);
             }
-            m_nets.push_back(net);
+            m_nets[i]=net;
         } catch (const cv::Exception& ex) {
             qWarning() << "Failed to load model " << m.name << ex.codeMessage() << ex.what();
         }
