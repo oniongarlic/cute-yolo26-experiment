@@ -584,7 +584,7 @@ int main(int argc, char *argv[])
             mwriter.write(maskFrame);
         }
 
-        int key = cv::waitKey(1);
+        int key = cv::pollKey();
         switch (key) {
         case '1':
             mbase=0;
