@@ -602,7 +602,8 @@ int main(int argc, char *argv[])
             mwriter.write(maskFrame);
         }
 
-        int key = cv::pollKey();
+        // xxx, linux ? int key = cv::pollKey();
+        int key = cv::waitKey(1);
         switch (key) {
             // 1-4 choose model size
         case '1':
