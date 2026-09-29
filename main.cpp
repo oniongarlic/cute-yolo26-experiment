@@ -386,7 +386,7 @@ int main(int argc, char *argv[])
 
     if (parser.isSet(outputOption)) {
         outfile=parser.value(outputOption);
-        qDebug() << "Output file " << file;
+        qDebug() << "Output file " << outfile;
     }
 
     if (parser.isSet(cameraOption)) {
@@ -436,6 +436,15 @@ int main(int argc, char *argv[])
     int frame_width = cap.get(cv::CAP_PROP_FRAME_WIDTH);
     int frame_height = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
     double frame_fps = cap.get(cv::CAP_PROP_FPS);
+
+    qDebug() << "Input frame " << frame_width << frame_height << frame_fps;
+
+    if (scale!=1.0 && scale>0.0) {
+        frame_width=(float)frame_width*scale;
+        frame_height=(float)frame_height*scale;
+    }
+
+    qDebug() << "Output frame " << frame_width << frame_height << frame_fps;
 
     if (!outfile.isEmpty()) {
         writer.open(outfile.toStdString(), cv::VideoWriter::fourcc('X', '2', '6', '4'), frame_fps, cv::Size(frame_width, frame_height));
