@@ -40,7 +40,9 @@ models = [
     "yolo26x.pt",
     "yolo26x-seg.pt",
     "yolo26x-pose.pt",
+]
 
+dmodels = [
     "yolo26n-depth.pt",
     "yolo26s-depth.pt",
     "yolo26m-depth.pt",
@@ -49,7 +51,7 @@ models = [
 ]
 
 def process_file(filename):
-    print(f"Processing {filename}")
+    print(f"Processing yolo {filename}")
 
     base, _ = os.path.splitext(filename)
     output = base + ".onnx"
@@ -68,11 +70,11 @@ def process_file(filename):
      nms=False,       # keep the raw head; YOLO26 is already NMS-free
     )
 
-def process_file_q8(filename):
-    print(f"Processing {filename}")
+def process_file_d(filename):
+    print(f"Processing depth model {filename}")
 
     base, _ = os.path.splitext(filename)
-    output = base + "_int8.onnx"
+    output = base + ".onnx"
 
     if os.path.exists(output):
         print(f"Already processed: {output}")
@@ -82,16 +84,17 @@ def process_file_q8(filename):
     model.export(
      format="onnx",
      opset=12,        # OpenCV 5 DNN needs opset >= 12
-     imgsz=640,       # fixed square input
+     imgsz=768,       # fixed square input
      dynamic=False,   # static shapes avoid a known DNN parsing issue
      simplify=True,   # fold constants for a cleaner graph
      nms=False,       # keep the raw head; YOLO26 is already NMS-free
-     quantize=8
     )
 
 
 for url in models:
     filename = os.path.basename(url)
-
     process_file(filename)
-    # process_file_q8(filename)
+
+for url in dmodels:
+    filename = os.path.basename(url)
+    process_file_d(filename)
