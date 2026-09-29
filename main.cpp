@@ -619,7 +619,7 @@ int main(int argc, char *argv[])
             set_current_network(3 * mbase + mindex);
             break;
         case '4':
-            mindex=3;
+            mbase=3;
             set_current_network(3 * mbase + mindex);
             break;
             // 5-8 choose depth model size
