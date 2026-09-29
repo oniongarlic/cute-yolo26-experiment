@@ -59,7 +59,9 @@ std::vector<Model> depth_models = {
 
 cv::dnn::Net *cnet;
 std::string cname;
+
 cv::dnn::Net *dnet;
+std::string dname;
 
 void blend(const cv::Mat &bg, const cv::Mat &fg, const cv::Mat &mask, cv::Mat &res)
 {
@@ -296,6 +298,12 @@ void set_current_network(int i)
     cname=models->name(i);
 }
 
+void set_current_depth_network(int i)
+{
+    dnet=&dmodels->net(i);
+    dname=dmodels->name(i);
+}
+
 /**
  *
  * Draw a pose line, but only if both points are over threshold
@@ -404,7 +412,7 @@ int main(int argc, char *argv[])
     dmodels->load();
 
     set_current_network(0);
-    dnet=&dmodels->net(0);
+    set_current_depth_network(0);
 
     if (camera>-1) {
         cap.open(camera);
@@ -455,12 +463,12 @@ int main(int argc, char *argv[])
             cv::resize(frame, frame, cv::Size(), scale, scale);
         }
 
-        auto df=detect(*cnet, frame, thres, bin);
-
-        if (showdepth && dnet && (f % 8==0 || gpu)) {
+        if (showdepth && !dnet->empty() && (f % 8==0 || gpu)) {
             depFrame=depth(*dnet, frame);
             cv::imshow(kWinDepth, visualize_depth(depFrame));
         }
+
+         auto df=detect(*cnet, frame, thres, bin);
 
         for (size_t i=0; i<df.size(); i++) {
             const auto d=df[i];
@@ -567,6 +575,7 @@ int main(int argc, char *argv[])
         imshow(kWinMain, frame);
 
         tm.stop();
+
         if (f % 16==0) {
             fps=tm.getFPS();
             qDebug() << "FPS: " << fps << tm.getAvgTimeMilli() << frame.size().height << frame.size().width;
@@ -576,16 +585,17 @@ int main(int argc, char *argv[])
             writer.write(frame);
         }
 
-        if (dwriter.isOpened() && showdepth) {
+        if (dwriter.isOpened() && showdepth && !depFrame.empty()) {
             dwriter.write(visualize_depth(depFrame));
         }
 
-        if (mwriter.isOpened()) {
+        if (mwriter.isOpened() && !maskFrame.empty()) {
             mwriter.write(maskFrame);
         }
 
         int key = cv::pollKey();
         switch (key) {
+            // 1-4 choose model size
         case '1':
             mbase=0;
             set_current_network(3 * mbase + mindex);
@@ -599,17 +609,36 @@ int main(int argc, char *argv[])
             set_current_network(3 * mbase + mindex);
             break;
         case '4':
+            mindex=3;
+            set_current_network(3 * mbase + mindex);
+            break;
+            // 5-8 choose depth model size
+        case '5':
+            set_current_depth_network(0);
+            break;
+        case '6':
+            set_current_depth_network(1);
+            break;
+        case '7':
+            set_current_depth_network(2);
+            break;
+        case '8':
+            set_current_depth_network(3);
+            break;
+            // a,s,d choose the model type (base, pose, seg)
+        case 'a':
             mindex=0;
             set_current_network(3 * mbase + mindex);
             break;
-        case '5':
+        case 's':
             mindex=1;
             set_current_network(3 * mbase + mindex);
             break;
-        case '6':
+        case 'd':
             mindex=2;
             set_current_network(3 * mbase + mindex);
             break;
+            //
         case 'q':
             run=false;
             break;
@@ -634,10 +663,10 @@ int main(int argc, char *argv[])
         case 'r':
             cv::setWindowProperty(kWinMask, cv::WND_PROP_FULLSCREEN , cv::WINDOW_NORMAL);
             break;
-        case 'd':
+        case 'g':
             cv::setWindowProperty(kWinMain, cv::WND_PROP_FULLSCREEN , cv::WINDOW_FULLSCREEN );
             break;
-        case 'e':
+        case 't':
             cv::setWindowProperty(kWinMain, cv::WND_PROP_FULLSCREEN , cv::WINDOW_NORMAL);
             break;
         case ' ':
