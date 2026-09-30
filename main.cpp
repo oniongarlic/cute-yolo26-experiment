@@ -152,13 +152,19 @@ cv::Mat decodeMask(const cv::Mat& coefficients, const cv::Mat& proto, const cv::
     return mask640(box640 & bmax);
 }
 
-cv::Mat visualize_depth(const cv::Mat& depth)
+cv::Mat visualize_depth(const cv::Mat& depth, bool colorize=false)
 {
     cv::Mat vdepth;
 
     double minVal, maxVal;
     cv::minMaxLoc(depth, &minVal, &maxVal);
     depth.convertTo(vdepth, CV_8U, 255.0 / (maxVal - minVal), -minVal * 255.0 / (maxVal - minVal));
+
+    if (colorize) {
+        cv::Mat vcolor;
+        cv::applyColorMap(vdepth, vcolor, cv::COLORMAP_TURBO);
+        return vcolor;
+    }
 
     return vdepth;
 }
@@ -324,6 +330,7 @@ int main(int argc, char *argv[])
     int camera=0;
     cv::Mat frame;
     bool run=true, bin=false, blur=false, pred=true,contour=false, paused=false,showdepth=false,gpu=false;
+    bool dcolor=false;
     int f=0;
     int mbase=0,mindex=0;
     double thres=0.6,scale=1.0;
@@ -487,9 +494,9 @@ int main(int argc, char *argv[])
             cv::resize(frame, frame, cv::Size(), scale, scale);
         }
 
-        if (showdepth && !dnet->empty() && (f % 8==0 || gpu)) {
+        if (showdepth && !dnet->empty()) {
             depFrame=depth(*dnet, frame);
-            cv::imshow(kWinDepth, visualize_depth(depFrame));
+            cv::imshow(kWinDepth, visualize_depth(depFrame, dcolor));
         }
 
          auto df=detect(*cnet, frame, thres, bin);
@@ -561,12 +568,12 @@ int main(int argc, char *argv[])
                     }
                 }
                 // Nose to eye
-                cv::line(frame, point3to2(d.pose[0]), point3to2(d.pose[1]), cv::Scalar(0,120,255), 2);
-                cv::line(frame, point3to2(d.pose[1]), point3to2(d.pose[3]), cv::Scalar(0,120,255), 2);
+                posel(frame, d.pose, 0, 1, cv::Scalar(0,150,255));
+                posel(frame, d.pose, 1, 3, cv::Scalar(0,150,255));
 
                 // Nose to eye
-                cv::line(frame, point3to2(d.pose[0]), point3to2(d.pose[2]), cv::Scalar(0,120,255), 2);
-                cv::line(frame, point3to2(d.pose[2]), point3to2(d.pose[4]), cv::Scalar(0,120,255), 2);
+                posel(frame, d.pose, 0, 2, cv::Scalar(0,120,255));
+                posel(frame, d.pose, 2, 4, cv::Scalar(0,120,255));
 
                 // Shoulders
                 posel(frame, d.pose, 5, 6, cv::Scalar(60,180,255));
@@ -672,6 +679,9 @@ int main(int argc, char *argv[])
             break;
         case 'c':
             contour=!contour;
+            break;
+        case 'x':
+            dcolor=!dcolor;
             break;
         case 'm':
             blur=!blur;
