@@ -15,7 +15,7 @@ static const std::string kWinMain = "OpenCV + YOLO26";
 static const std::string kWinMask = "Mask";
 static const std::string kWinDepth = "Depth";
 
-static cv::Mat lbox = cv::Mat(target, target, CV_8UC3, cv::Scalar(114, 114, 114));
+static const cv::Mat lbox = cv::Mat(target, target, CV_8UC3, cv::Scalar(114, 114, 114));
 
 struct Detection {
     cv::Rect2f box;
@@ -349,13 +349,16 @@ int main(int argc, char *argv[])
     QCommandLineOption modelOption("b", "Model base path.", "path");
     parser.addOption(modelOption);
 
-    QCommandLineOption defaultOption("m", "Start with given model.", "model");
-    parser.addOption(defaultOption);
+    QCommandLineOption defaultModelOption("m", "Start with given model size (0-3).", "model");
+    parser.addOption(defaultModelOption);
+
+    QCommandLineOption defaultModelTypeOption("t", "Start with given model type (0-2).", "type");
+    parser.addOption(defaultModelTypeOption);
 
     QCommandLineOption scaleOption("s", "Scale frame down", "scale");
     parser.addOption(scaleOption);
 
-    QCommandLineOption gpuOption("g", "Force CUDA gpu", "gpu");
+    QCommandLineOption gpuOption("g", "Force CUDA gpu");
     parser.addOption(gpuOption);
 
     parser.process(app);
@@ -405,13 +408,25 @@ int main(int argc, char *argv[])
         //qDebug() << "Loading models from " << basepath;
     }
 
+    if (parser.isSet(defaultModelOption)) {
+        mbase=parser.value(defaultModelOption).toInt();
+        mbase=std::clamp(mbase,0,3);
+        qDebug() << "Model base set to " << mbase;
+    }
+
+    if (parser.isSet(defaultModelTypeOption)) {
+        mindex=parser.value(defaultModelTypeOption).toInt();
+        mindex=std::clamp(mindex,0,2);
+        qDebug() << "Model type set to " << mindex;
+    }
+
     models->setGpu(gpu);
     dmodels->setGpu(gpu);
 
     models->load();
     dmodels->load();
 
-    set_current_network(0);
+    set_current_network(3 * mbase + mindex);
     set_current_depth_network(0);
 
     if (camera>-1) {
@@ -578,7 +593,7 @@ int main(int argc, char *argv[])
             }
         }
 
-        std::string flabel = cv::format("(%.1f) [%d] (%s)", fps, cneti, cname.c_str());
+        std::string flabel = cv::format("(FPS: %.1f) (T: %.1f) [%d] (%s)", fps, thres, cneti, cname.c_str());
         putText(frame, flabel, cv::Point(10, 20), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 0), 1);
 
         imshow(kWinMain, frame);
